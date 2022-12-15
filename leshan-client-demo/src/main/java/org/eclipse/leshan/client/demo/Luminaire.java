@@ -53,7 +53,7 @@ public class Luminaire extends BaseInstanceEnabler {
 
     // LED, Halogen
     private String vType = "";
-    private final String[] choices = {"LED", "Halogen"};
+//    private final String[] choices = {"LED", "Halogen"};
 
     private long vPeakPower = 0;
 
@@ -72,10 +72,10 @@ public class Luminaire extends BaseInstanceEnabler {
     private JLabel gvType;
     private JLabel gvPeak;
     private JLabel gvDim;
-    private JCheckBox cbPower;
-    private JComboBox<String> typeChoice;
+//    private JCheckBox cbPower;
+//    private JComboBox<String> typeChoice;
     private JTextField tfPeakPower;
-    private JTextField tfDimlevel;
+//    private JTextField tfDimlevel;
     private JFrame guiFrame;
 
     public Luminaire() {
@@ -105,64 +105,68 @@ public class Luminaire extends BaseInstanceEnabler {
         gvPower = new JLabel();
         gvPower.setText(Boolean.toString(vPower));
         gvType = new JLabel();
-        gvType.setText("None chosen yet");
+        gvType.setText(vType);
         gvPeak = new JLabel();
         gvPeak.setText(Long.toString(vPeakPower));
         gvDim = new JLabel();
         gvDim.setText(Long.toString(vDimLevel));
 
-        cbPower = new JCheckBox();
-        cbPower.setSelected(vPower);
-        typeChoice = new JComboBox<String>(choices);
+//        cbPower = new JCheckBox();
+//        cbPower.setSelected(vPower);
+//        typeChoice = new JComboBox<String>(choices);
 
         tfPeakPower = new JTextField();
-        tfDimlevel = new JTextField();
-        cbPower.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                boolean bValue = cbPower.isSelected();
-                setPower(bValue);
-            }
-        });
-        typeChoice.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                String sValue = typeChoice.getItemAt(typeChoice.getSelectedIndex());
-                setType(sValue);
-            }
-        });
+//        tfDimlevel = new JTextField();
+//        cbPower.addActionListener(new java.awt.event.ActionListener() {
+//            public void actionPerformed(java.awt.event.ActionEvent evt) {
+//                boolean bValue = cbPower.isSelected();
+//                setPower(bValue);
+//            }
+//        });
+//        typeChoice.addActionListener(new java.awt.event.ActionListener() {
+//            public void actionPerformed(java.awt.event.ActionEvent evt) {
+//                String sValue = typeChoice.getItemAt(typeChoice.getSelectedIndex());
+//                setType(sValue);
+//            }
+//        });
         tfPeakPower.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 String sValue = (String) tfPeakPower.getText();
                 setPeakPower(Long.valueOf(sValue));
             }
         });
-        tfDimlevel.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                String sValue = (String) tfDimlevel.getText();
-                setDimLevel(Long.valueOf(sValue));
-            }
-        });
-
+//        tfDimlevel.addActionListener(new java.awt.event.ActionListener() {
+//            public void actionPerformed(java.awt.event.ActionEvent evt) {
+//                String sValue = (String) tfDimlevel.getText();
+//                setDimLevel(Long.valueOf(sValue));
+//            }
+//        });
 
         // Create layout of labels, inputs and values.
         GridLayout layout = new GridLayout(4, 3, 10, 10);
         guiFrame.getContentPane().setLayout(layout);
         Container guiPane = guiFrame.getContentPane();
         guiPane.add(glPower);
-        guiPane.add(cbPower);
+//        guiPane.add(cbPower);
         guiPane.add(gvPower);
+        guiPane.add(new JLabel());
 
         guiPane.add(glType);
-        guiPane.add(typeChoice);
+//        guiPane.add(typeChoice);
         guiPane.add(gvType);
+        guiPane.add(new JLabel());
 
         guiPane.add(glPeak);
         guiPane.add(tfPeakPower);
         guiPane.add(gvPeak);
 
         guiPane.add(glDim);
-        guiPane.add(tfDimlevel);
+//        guiPane.add(tfDimlevel);
         guiPane.add(gvDim);
+        guiPane.add(new JLabel());
+
         guiFrame.pack();
+
         // Code to make the frame visible.
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
@@ -176,6 +180,7 @@ public class Luminaire extends BaseInstanceEnabler {
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
         switch (resourceId) {
             case RES_POWER:
+                gvPeak.setText(Boolean.toString(vPower));
                 return ReadResponse.success(resourceId, vPower);
             case RES_TYPE:
                 return ReadResponse.success(resourceId, vType);
@@ -222,7 +227,10 @@ public class Luminaire extends BaseInstanceEnabler {
     // Configure before registration, don't fire.
     public void configure(String lumtype, long peakpower) {
         vType = lumtype;
+        gvType.setText(vType);
         vPeakPower = peakpower;
+        gvPeak.setText(Long.toString(vPeakPower));
+
     }
 
     private synchronized void setPower(boolean value) {

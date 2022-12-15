@@ -48,7 +48,7 @@ public class DemandResponse extends BaseInstanceEnabler {
     // Variables storing current values.
 
     // 0..500
-    private int vTotalAllowedPeakRoomPower = 200;
+    private int vTotalAllowedPeakRoomPower = 300;
     private JLabel glTotalAllowedPeakRoomPower;
     private JLabel gvTotalAllowedPeakRoomPower;
     private JTextField tfTotalAllowedPeakRoomPower;

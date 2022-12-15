@@ -35,18 +35,19 @@ public class RoomControl {
 
     // 2IMN15:  TODO  : fill in
     // Declare variables to keep track of the state of the room.
-    private String roomName;
-    private Long maxPeakRoomPower;
-    private HashMap<String, Long> peakPowerMap;
+    private static String roomName;
+    private static int maxPeakRoomPower;
+    private static Map<String, Integer> peakPowerMap;
+    private static Map<String, Registration> registrationMap;
 
     public static void Initialize(LeshanServer server) {
         // Register the LWM2M server object for future use
         lwServer = server;
 
-        // 2IMN15:  TODO  : fill in
-        //
         // Initialize the state variables.
-
+        maxPeakRoomPower = 0;
+        peakPowerMap = new HashMap<>();
+        registrationMap = new HashMap<>();
     }
 
     //
@@ -55,16 +56,23 @@ public class RoomControl {
     // * set the dim level of all luminaires.
     // * set the power flag of all luminaires.
     // * show the status of the room.
-    public static void setAllDim(Long dimLevel) {
-        //TODO
+
+    // Set dim level of all registered luminaires to dimLevel
+    public static void setAllDim(int dimLevel) {
+        registrationMap.forEach((key, value) -> {
+            writeInteger(value, Constants.LUMINAIRE_ID, 0, Constants.RES_DIM_LEVEL, Math.max(0, Math.min(dimLevel, 100)));
+        });
     }
 
+    // Set power of all registered luminaires on/off
     public static void setAllPower(boolean power) {
-        //TODO
+        registrationMap.forEach((key, value) -> {
+            writeBoolean(value, Constants.LUMINAIRE_ID, 0, Constants.RES_POWER, power);
+        });
     }
 
     public static void getRoomStatus() {
-        //TODO scenario 2
+        //TODO scenario 2?
     }
 
 
@@ -75,38 +83,20 @@ public class RoomControl {
 
         if (supportedObject.get(Constants.PRESENCE_DETECTOR_ID) != null) {
             System.out.println("Presence Detector");
-
-            //
-            // 2IMN15:  TODO  :  fill in
-            //
             // Process the registration of a new Presence Detector.
-            String presence = readString(registration,
-                    Constants.PRESENCE_DETECTOR_ID,
-                    0,
-                    Constants.RES_PRESENCE);
-            System.out.println(presence);
+            String presence = registerPresenceDetector(registration);
         }
 
         if (supportedObject.get(Constants.LUMINAIRE_ID) != null) {
             System.out.println("Luminaire");
-
-            //
-            // 2IMN15:  TODO  :  fill in
-            //
             // Process the registration of a new Luminaire.
-            String power = readString(registration,
-                    Constants.LUMINAIRE_ID,
-                    0,
-                    Constants.RES_POWER);
-            System.out.println(power);
+            int peakPower = registerLuminaire(registration);
         }
 
         if (supportedObject.get(Constants.DEMAND_RESPONSE_ID) != null) {
             System.out.println("Demand Response");
-            //
             // The registerDemandResponse() method contains example code
             // on how handle a registration.
-            //
             int powerBudget = registerDemandResponse(registration);
         }
 
@@ -120,7 +110,23 @@ public class RoomControl {
         //
         // The device identified by the given registration will
         // disappear.  Update the state accordingly.
-        System.out.println("Deregistration happened");
+
+        // Check which objects are available.
+        Map<Integer, org.eclipse.leshan.core.LwM2m.Version> supportedObject =
+                registration.getSupportedObject();
+
+        // If the deregistering object is a luminaire, update the map and max peak room power
+        if (supportedObject.get(Constants.LUMINAIRE_ID) != null) {
+            System.out.println("old maxPeakPower: " + maxPeakRoomPower);
+            int peakPower = peakPowerMap.get(registration.getEndpoint());
+            maxPeakRoomPower -= peakPower;
+            peakPowerMap.remove(registration.getEndpoint());
+            registrationMap.remove(registration.getEndpoint());
+            System.out.println("Luminaire " + registration.getEndpoint() + " deregistered");
+            System.out.println("new maxPeakPower: " + maxPeakRoomPower);
+        } else {
+            System.out.println("Other device " + registration.getEndpoint() + " deregistered");
+        }
     }
 
     public static void handleObserveResponse(SingleObservation observation,
@@ -136,15 +142,91 @@ public class RoomControl {
             // Useful methods:
             //    registration.getEndpoint()
             //    observation.getPath()
+            int newPresence = observedPresenceDetector(observation, response);
 
+            int newPeakPower = observedLuminaire(observation, response, registration);
 
             // For processing an update of the Demand Response object.
             // It contains some example code.
             int newPowerBudget = observedDemandResponse(observation, response);
-
+            setAllDim((int)(((double) newPowerBudget/(double) maxPeakRoomPower)*100.0));
         }
     }
 
+    private static String registerPresenceDetector(Registration registration) {
+        String presence = readString(registration,
+                Constants.PRESENCE_DETECTOR_ID,
+                0,
+                Constants.RES_PRESENCE);
+        System.out.println(presence);
+        System.out.println(registration.getEndpoint());
+
+        // Observe presence information for updates.
+        try {
+            ObserveRequest obRequest =
+                    new ObserveRequest(Constants.PRESENCE_DETECTOR_ID,
+                            0,
+                            Constants.RES_PRESENCE);
+            System.out.println(">>ObserveRequest PD created << ");
+            ObserveResponse coResponse =
+                    lwServer.send(registration, obRequest, 1000);
+            System.out.println(">>ObserveRequest PD sent << ");
+            if (coResponse == null) {
+                System.out.println(">>ObserveRequest null << ");
+            }
+        } catch (Exception e) {
+            System.out.println("Observe request failed for Presence Detector.");
+        }
+        return presence;
+    }
+
+    // Registers a luminaire to the room and observes its updates.
+    // Does not register it if it is of the wrong type.
+    // Returns value of peak power, returns -1 if invalid type.
+    private static int registerLuminaire(Registration registration) {
+        String peakPower = readString(registration,
+                Constants.LUMINAIRE_ID,
+                0,
+                Constants.RES_PEAK_POWER);
+        System.out.println(peakPower);
+
+        String type = readString(registration,
+                Constants.LUMINAIRE_ID,
+                0,
+                Constants.RES_TYPE);
+
+
+        // Register object in mapping and update peak room power if it is of a valid type
+        if (type.equals("LED") || type.equals("Halogen")) {
+            System.out.println("Correct type detected: " + type);
+        } else {
+            System.out.println("Unspecified type detected");
+        }
+        int peakLong = Integer.valueOf(peakPower);
+        System.out.println("old maxPeakRoomPower: " + maxPeakRoomPower);
+        maxPeakRoomPower += peakLong;
+        peakPowerMap.put(registration.getEndpoint(), peakLong);
+        registrationMap.put(registration.getEndpoint(), registration);
+        System.out.println("new maxPeakRoomPower: " + maxPeakRoomPower);
+
+        // Observe peak power information for updates.
+        try {
+            ObserveRequest obRequest =
+                    new ObserveRequest(Constants.LUMINAIRE_ID,
+                            0,
+                            Constants.RES_PEAK_POWER);
+            System.out.println(">>ObserveRequest Lum created << ");
+            ObserveResponse coResponse =
+                    lwServer.send(registration, obRequest, 1000);
+            System.out.println(">>ObserveRequest Lum sent << ");
+            if (coResponse == null) {
+                System.out.println(">>ObserveRequest null << ");
+            }
+        } catch (Exception e) {
+            System.out.println("Observe request failed for Luminaire.");
+        }
+        return peakLong;
+    }
 
     // Support functions for reading and writing resources of
     // certain types.
@@ -163,10 +245,10 @@ public class RoomControl {
                     new ObserveRequest(Constants.DEMAND_RESPONSE_ID,
                             0,
                             Constants.RES_TOTAL_BUDGET);
-            System.out.println(">>ObserveRequest created << ");
+            System.out.println(">>ObserveRequest DR created << ");
             ObserveResponse coResponse =
                     lwServer.send(registration, obRequest, 1000);
-            System.out.println(">>ObserveRequest sent << ");
+            System.out.println(">>ObserveRequest DR sent << ");
             if (coResponse == null) {
                 System.out.println(">>ObserveRequest null << ");
             }
@@ -174,6 +256,67 @@ public class RoomControl {
             System.out.println("Observe request failed for Demand Response.");
         }
         return powerBudget;
+    }
+
+    // If the response contains a new presence, it returns that value.
+    // Otherwise, it returns -1.
+    private static int observedPresenceDetector(SingleObservation observation,
+                                                ObserveResponse response) {
+        // Alternative code:
+        // String obsRes = observation.getPath().toString();
+        // if (obsRes.equals("/33002/0/30005"))
+        LwM2mPath obsPath = observation.getPath();
+        if ((obsPath.getObjectId() == Constants.PRESENCE_DETECTOR_ID) &&
+                (obsPath.getResourceId() == Constants.RES_PRESENCE)) {
+            String strValue = ((LwM2mResource) response.getContent()).getValue().toString();
+            try {
+                int newPresence = -1;
+                if (strValue.equals("false")) {
+                    newPresence = 0;
+                    // turn all luminaires off
+                    setAllPower(false);
+                } else if (strValue.equals("true")) {
+                    newPresence = 1;
+                    // turn all luminaires on
+                    setAllPower(true);
+                } else {
+                    System.out.println("An error has occured in reading new presence");
+                }
+                System.out.println("New presence is " + newPresence);
+                return newPresence;
+            } catch (Exception e) {
+                System.out.println("Exception in reading presence detector:" + e.getMessage());
+            }
+        }
+        return -1;
+    }
+
+    // If the response contains a new peak power, it returns that value.
+    // Otherwise, it returns -1.
+    private static int observedLuminaire(SingleObservation observation,
+                                         ObserveResponse response, Registration registration) {
+        // Alternative code:
+        // String obsRes = observation.getPath().toString();
+        // if (obsRes.equals("/33002/0/30005"))
+        LwM2mPath obsPath = observation.getPath();
+        if ((obsPath.getObjectId() == Constants.LUMINAIRE_ID) &&
+                (obsPath.getResourceId() == Constants.RES_PEAK_POWER)) {
+            String strValue = ((LwM2mResource) response.getContent()).getValue().toString();
+            try {
+                int newPeakPower = Integer.parseInt(strValue);
+                // update mapping and total peak room power
+                maxPeakRoomPower -= peakPowerMap.get(registration.getEndpoint());
+                maxPeakRoomPower += newPeakPower;
+                peakPowerMap.put((registration.getEndpoint()), newPeakPower);
+
+                System.out.println("Peak power is " + newPeakPower);
+                System.out.println("maxPeakPower of room is: " + maxPeakRoomPower);
+                return newPeakPower;
+            } catch (Exception e) {
+                System.out.println("Exception in reading luminaire:" + e.getMessage());
+            }
+        }
+        return -1;
     }
 
     // If the response contains a new power budget, it returns that value.
