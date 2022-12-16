@@ -65,13 +65,7 @@ public class PresenceDetector extends BaseInstanceEnabler {
         // 2IMN15:  TODO  :  fill in
         //
         // Create an interface to enable presence detection
-        // Options:
-        // *  GUI     (see DemandResponse.java for an Swing/AWT example)
-        // *  external application
-        // *  ...
-        //
         // Call "setPresence(bool)" to inform observers.
-        //  Automatically generated GUI code.
         guiFrame = new JFrame();
         guiFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         guiFrame.setTitle("Presence Detector");

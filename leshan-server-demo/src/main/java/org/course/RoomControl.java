@@ -71,6 +71,7 @@ public class RoomControl {
         });
     }
 
+    // Get room status since it was a suggested method, but I do not know how/where to use it
     public static void getRoomStatus() {
         //TODO scenario 2?
     }
@@ -99,8 +100,6 @@ public class RoomControl {
             // on how handle a registration.
             int powerBudget = registerDemandResponse(registration);
         }
-
-        //  2IMN15: don't forget to update the other luminaires.
     }
 
 
@@ -138,12 +137,7 @@ public class RoomControl {
             //
             // When the registration and observation are known,
             // process the value contained in the response.
-            //
-            // Useful methods:
-            //    registration.getEndpoint()
-            //    observation.getPath()
             int newPresence = observedPresenceDetector(observation, response);
-
             int newPeakPower = observedLuminaire(observation, response, registration);
 
             // For processing an update of the Demand Response object.
@@ -202,7 +196,8 @@ public class RoomControl {
         } else {
             System.out.println("Unspecified type detected");
         }
-        int peakLong = Integer.valueOf(peakPower);
+        // Update registration maps and max peak room power
+        int peakLong = Integer.parseInt(peakPower);
         System.out.println("old maxPeakRoomPower: " + maxPeakRoomPower);
         maxPeakRoomPower += peakLong;
         peakPowerMap.put(registration.getEndpoint(), peakLong);
